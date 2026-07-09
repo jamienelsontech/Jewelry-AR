@@ -379,14 +379,14 @@ function initThree() {
   renderer3 = new THREE.WebGLRenderer({ canvas: els.overlay, alpha: true, antialias: true });
   renderer3.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.65));
-  const key = new THREE.DirectionalLight(0xffffff, 1.0);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+  const key = new THREE.DirectionalLight(0xffffff, 1.2);
   key.position.set(150, -250, 400);
   scene.add(key);
-  const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.55);
   fill.position.set(-150, 200, -150);
   scene.add(fill);
-  const rim = new THREE.PointLight(0xfff4dd, 0.6, 0, 2);
+  const rim = new THREE.PointLight(0xfff4dd, 0.8, 0, 2);
   rim.position.set(0, -100, 200);
   scene.add(rim);
 
@@ -409,9 +409,13 @@ function rebuildRingMesh() {
   const metalColor = ring.metalColor ?? ring.fallbackMetal ?? 0xd8b96a;
   const gemColor = ring.gemColor ?? ring.fallbackGem;
 
+  // Metalness kept moderate (not near-1.0) so the material shows its actual
+  // color from direct scene lights -- a fully "metal" PBR value relies on
+  // reflecting an environment map, which this scene doesn't have, and can
+  // render as near-black on some devices/lighting setups without one.
   const bandGeo = new THREE.TorusGeometry(1, 0.34, 40, 72);
   const bandMat = new THREE.MeshStandardMaterial({
-    color: metalColor, metalness: 0.92, roughness: 0.25,
+    color: metalColor, metalness: 0.35, roughness: 0.35,
   });
   bandMesh = new THREE.Mesh(bandGeo, bandMat);
   ringGroup.add(bandMesh);
@@ -421,7 +425,7 @@ function rebuildRingMesh() {
     const gemMat = new THREE.MeshPhysicalMaterial({
       color: gemColor, metalness: 0.05, roughness: 0.12,
       clearcoat: 1, clearcoatRoughness: 0.08,
-      reflectivity: 0.9, envMapIntensity: 1.2,
+      reflectivity: 0.9,
     });
     gemMesh = new THREE.Mesh(gemGeo, gemMat);
     gemMesh.position.set(0, 1.08, 0);
@@ -429,7 +433,7 @@ function rebuildRingMesh() {
     ringGroup.add(gemMesh);
 
     // Small prong accents around the gem base
-    const prongMat = new THREE.MeshStandardMaterial({ color: metalColor, metalness: 0.9, roughness: 0.3 });
+    const prongMat = new THREE.MeshStandardMaterial({ color: metalColor, metalness: 0.35, roughness: 0.35 });
     for (let i = 0; i < 4; i++) {
       const ang = (Math.PI / 2) * i + Math.PI / 4;
       const prong = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), prongMat);
