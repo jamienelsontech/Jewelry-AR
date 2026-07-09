@@ -353,19 +353,22 @@ function drawRing(ctx, lm, map) {
   const band = Math.max(20, gap * 1.3);
   const rx = band * 0.55;
   const ry = band * 0.55;
+  const innerRx = rx * 0.6;
+  const innerRy = ry * 0.6;
 
   ctx.save();
   ctx.translate(pos.x, pos.y);
   ctx.rotate(angle + Math.PI / 2);
 
-  // Clip to a circle and draw the real product photo inside it --
-  // gives a "real image" look without needing pre-cut transparent PNGs.
+  // Clip to an ANNULUS (outer ellipse minus inner ellipse) so the band
+  // reads as an actual ring -- the finger shows through the hole in the
+  // middle, and there's no white background since nothing is filled
+  // outside the clip region.
   ctx.save();
   ctx.beginPath();
   ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-  ctx.clip();
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(-rx, -ry, rx * 2, ry * 2);
+  ctx.ellipse(0, 0, innerRx, innerRy, 0, 0, Math.PI * 2);
+  ctx.clip('evenodd');
   if (img && img.complete && img.naturalWidth) {
     const iw = img.naturalWidth, ih = img.naturalHeight;
     const s = Math.max((rx * 2) / iw, (ry * 2) / ih);
@@ -377,11 +380,16 @@ function drawRing(ctx, lm, map) {
   }
   ctx.restore();
 
-  // Ring edge + subtle shading for depth
+  // Ring edge + subtle shading for depth (outer and inner edges)
   ctx.beginPath();
   ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
   ctx.lineWidth = Math.max(1, band * 0.03);
   ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(0, 0, innerRx, innerRy, 0, 0, Math.PI * 2);
+  ctx.lineWidth = Math.max(1, band * 0.02);
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
   ctx.stroke();
 
   const shine = ctx.createRadialGradient(-rx * 0.3, -ry * 0.3, band * 0.05, 0, 0, rx);
