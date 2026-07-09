@@ -104,8 +104,12 @@
   <div id="live" class="hidden">
     <div class="top-bar">
       <div class="brand serif">CLASSIQUE JEWELRY</div>
-      <button class="flip-btn" id="flipBtn" aria-label="Flip camera">⟳</button>
+      <div style="display:flex; gap:8px;">
+        <button class="flip-btn" id="debugBtn" aria-label="Debug info" style="font-size:13px;">🛈</button>
+        <button class="flip-btn" id="flipBtn" aria-label="Flip camera">⟳</button>
+      </div>
     </div>
+    <pre id="debugPanel" style="display:none; position:absolute; top:70px; left:12px; right:12px; background:rgba(0,0,0,0.85); color:#0f0; font-size:10px; padding:10px; border-radius:8px; white-space:pre-wrap; pointer-events:auto; z-index:20; max-height:50vh; overflow:auto;"></pre>
     <div class="hint-row">
       <div class="hint-pill" id="handHint">
         <span class="hint-dot"></span>
@@ -215,6 +219,8 @@ const els = {
   startBtn: document.getElementById('startBtn'),
   retryBtn: document.getElementById('retryBtn'),
   flipBtn: document.getElementById('flipBtn'),
+  debugBtn: document.getElementById('debugBtn'),
+  debugPanel: document.getElementById('debugPanel'),
   captureBtn: document.getElementById('captureBtn'),
   retakeBtn: document.getElementById('retakeBtn'),
   saveBtn: document.getElementById('saveBtn'),
@@ -373,6 +379,8 @@ async function flip() {
 let scene, camera3, renderer3, ringGroup, bandMesh, gemMesh;
 let threeReady = false;
 
+let debugInfo = { webgl: 'n/a', frames: 0, lastError: null };
+
 function initThree() {
   if (threeReady) return;
   threeReady = true;
@@ -380,6 +388,19 @@ function initThree() {
   scene = new THREE.Scene();
   renderer3 = new THREE.WebGLRenderer({ canvas: els.overlay, alpha: true, antialias: true, preserveDrawingBuffer: true });
   renderer3.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+  try {
+    const gl = renderer3.getContext();
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    debugInfo.webgl = JSON.stringify({
+      version: gl.getParameter(gl.VERSION),
+      renderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
+      vendor: dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR),
+      maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+    }, null, 1);
+  } catch (e) {
+    debugInfo.webgl = 'ERROR: ' + e.message;
+  }
 
   scene.add(new THREE.AmbientLight(0xffffff, 0.85));
   const key = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -491,7 +512,30 @@ function loop() {
     ringGroup.visible = false;
   }
 
-  renderer3.render(scene, camera3);
+  try {
+    renderer3.render(scene, camera3);
+  } catch (e) {
+    debugInfo.lastError = e.message + '\n' + (e.stack || '').slice(0, 300);
+  }
+  debugInfo.frames++;
+
+  if (debugInfo.frames % 15 === 0 && els.debugPanel.style.display !== 'none') {
+    const ring = RINGS[selected];
+    els.debugPanel.textContent = JSON.stringify({
+      webgl: debugInfo.webgl,
+      frames: debugInfo.frames,
+      handDetected,
+      ringGroupVisible: ringGroup ? ringGroup.visible : null,
+      ringGroupChildren: ringGroup ? ringGroup.children.length : null,
+      ringGroupScale: ringGroup ? ringGroup.scale.x.toFixed(3) : null,
+      ringGroupPos: ringGroup ? `${ringGroup.position.x.toFixed(0)},${ringGroup.position.y.toFixed(0)}` : null,
+      selectedRing: ring.name,
+      metalColor: ring.metalColor ? ring.metalColor.toString(16) : null,
+      gemColor: ring.gemColor != null ? ring.gemColor.toString(16) : null,
+      canvasSize: `${els.overlay.width}x${els.overlay.height}`,
+      lastError: debugInfo.lastError,
+    }, null, 1);
+  }
 }
 
 function updateRingTransform(lm, map) {
@@ -568,6 +612,9 @@ async function shareCapture() {
 els.startBtn.addEventListener('click', start);
 els.retryBtn.addEventListener('click', start);
 els.flipBtn.addEventListener('click', flip);
+els.debugBtn.addEventListener('click', () => {
+  els.debugPanel.style.display = els.debugPanel.style.display === 'none' ? 'block' : 'none';
+});
 els.captureBtn.addEventListener('click', capture);
 els.retakeBtn.addEventListener('click', closeCapture);
 els.saveBtn.addEventListener('click', downloadCapture);
